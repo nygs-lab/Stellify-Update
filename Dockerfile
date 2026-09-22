@@ -1,25 +1,20 @@
 FROM node:20-slim
 
-# Install pnpm globally
+# Enable pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-# Copy package management files
-COPY package.json pnpm-lock.yaml* ./
-
-# Allow native build scripts (esbuild, etc.) and install dependencies
-RUN pnpm config set ignore-scripts false
-RUN pnpm install --unsafe-perm
-
-# Copy remaining source code
+# Copy all repository files
 COPY . .
 
-# Build application with script execution allowed
-RUN pnpm run build --if-present
+# Install all dependencies ignoring frozen lockfile check for scripts
+RUN pnpm install --no-frozen-lockfile
+
+# Run the root build script
+RUN pnpm run build
 
 ENV PORT=5000
 EXPOSE 5000
 
-# Start application
 CMD ["pnpm", "start"]
