@@ -1,9 +1,23 @@
-FROM php:8.2-apache
+FROM node:20-slim
 
-RUN apt-get update && apt-get install -y libpq-dev \
-    && docker-php-ext-install pdo pdo_pgsql pgsql
+# Install pnpm globally
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
-COPY . /var/www/html/
+WORKDIR /app
 
-RUN a2enmod rewrite
-EXPOSE 80
+# Copy package management files first
+COPY package.json pnpm-lock.yaml* ./
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile || pnpm install
+
+# Copy application source code
+COPY . .
+
+# Build step (if your package.json has a build script)
+RUN pnpm run build --if-present
+
+EXPOSE 5000
+
+# Start the application
+CMD ["pnpm", "start"]
