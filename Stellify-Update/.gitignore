@@ -47,3 +47,7 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Ignore secret environment files
+StellifySS.env
+*.env
