@@ -5,19 +5,19 @@ RUN npm install -g pnpm@9
 
 WORKDIR /app
 
-# Copy all files
+# Copy repository files
 COPY . .
+
+# Set environment variables required BEFORE build time
+ENV PORT=5000
+ENV EXPO_PUBLIC_DOMAIN=stellify-update.onrender.com
 
 # Install dependencies
 RUN pnpm install --no-frozen-lockfile
 
-# Set environment variable required by mobile build script
-ENV EXPO_PUBLIC_DOMAIN=stellify-update.onrender.com
-
 # Build workspace apps
 RUN pnpm -r --filter "./artifacts/**" --if-present run build
 
-ENV PORT=5000
 EXPOSE 5000
 
 CMD ["pnpm", "start"]
