@@ -21,4 +21,5 @@ RUN pnpm -r --filter "./artifacts/**" --if-present run build
 
 EXPOSE 5000
 
-CMD ["pnpm", "start"]
+# Start the built backend API server
+CMD ["pnpm", "--filter", "@workspace/api-server", "start"]
