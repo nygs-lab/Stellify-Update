@@ -1,0 +1,4173 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: Stellify Church Management API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+  - name: auth
+  - name: members
+  - name: profile
+  - name: spiritual-habits
+  - name: personal-habits
+  - name: sharing-habits
+  - name: church-hub
+  - name: engagement
+  - name: stellarboard
+  - name: ministry
+  - name: admin
+  - name: groups
+  - name: Storage
+    description: Object storage upload and serving endpoints.
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # ─── AUTH ────────────────────────────────────────────────────────────────────
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with PCM/TCM ID and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResult"
+        "401":
+          description: Invalid credentials
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "204":
+          description: Logged out
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        "401":
+          description: Not authenticated
+
+  /auth/change-password:
+    post:
+      operationId: changePassword
+      tags: [auth]
+      summary: Change password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordInput"
+      responses:
+        "204":
+          description: Password changed
+
+  /auth/forgot-password:
+    post:
+      operationId: forgotPassword
+      tags: [auth]
+      summary: Verify identity (churchId + email) and issue a reset token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordInput"
+      responses:
+        "200":
+          description: Identity verified, reset token issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordResetTokenResponse"
+        "400":
+          description: Missing fields
+        "404":
+          description: No matching account
+
+  /auth/reset-password:
+    post:
+      operationId: resetPassword
+      tags: [auth]
+      summary: Reset password using a reset token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordInput"
+      responses:
+        "204":
+          description: Password reset
+        "400":
+          description: Invalid or expired token
+
+  # ─── MEMBERS ─────────────────────────────────────────────────────────────────
+  /members:
+    get:
+      operationId: listMembers
+      tags: [members]
+      summary: List all members
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [Active, Deactivated, Retired, Deleted]
+        - name: accountType
+          in: query
+          schema:
+            type: string
+            enum: [PCM, TCM]
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Member"
+    post:
+      operationId: createMember
+      tags: [members]
+      summary: Create a new member (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+
+  /members/{id}:
+    get:
+      operationId: getMember
+      tags: [members]
+      summary: Get a member by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Member found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateMember
+      tags: [members]
+      summary: Update a member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+    delete:
+      operationId: deleteMember
+      tags: [members]
+      summary: Delete a member (Admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /members/{id}/status:
+    patch:
+      operationId: updateMemberStatus
+      tags: [members]
+      summary: Update member account status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberStatusUpdate"
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+
+  /members/{id}/stellar-status:
+    patch:
+      operationId: updateStellarStatus
+      tags: [members]
+      summary: Submit stellar status change request (creates approval awaiting Pastor)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StellarStatusUpdate"
+      responses:
+        "200":
+          description: Approval request created; pendingStellarStatus set on member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StellarStatusChangeResult"
+
+  # ─── PROFILE (self) ───────────────────────────────────────────────────────────
+  /profile:
+    get:
+      operationId: getProfile
+      tags: [profile]
+      summary: Get own profile
+      responses:
+        "200":
+          description: Own profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+    patch:
+      operationId: updateProfile
+      tags: [profile]
+      summary: Update own profile (member-editable fields)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+
+  /profile/push-token:
+    put:
+      operationId: updatePushToken
+      tags: [profile]
+      summary: Register or update the Expo push token for the current member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushTokenInput"
+      responses:
+        "204":
+          description: Token saved
+        "401":
+          description: Not authenticated
+
+  /profile/timezone:
+    put:
+      operationId: updateTimezone
+      tags: [profile]
+      summary: Store the member's IANA timezone (auto-detected by the client on login)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TimezoneInput"
+      responses:
+        "204":
+          description: Timezone saved
+        "400":
+          description: Invalid timezone value
+        "401":
+          description: Not authenticated
+
+  # ─── DASHBOARD ────────────────────────────────────────────────────────────────
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [members]
+      summary: Get personal dashboard summary including stellar status and countdown
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/notifications:
+    get:
+      operationId: getNotifications
+      tags: [members]
+      summary: Get incoming notifications for the current user
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+
+  # ─── SPIRITUAL HABITS ─────────────────────────────────────────────────────────
+  /habits/spiritual:
+    get:
+      operationId: getSpiritualHabits
+      tags: [spiritual-habits]
+      summary: Get spiritual habit cards for current week
+      parameters:
+        - name: weekStart
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Spiritual habit data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpiritualHabitWeek"
+
+  /habits/spiritual/log:
+    post:
+      operationId: logSpiritualHabit
+      tags: [spiritual-habits]
+      summary: Log a spiritual habit entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpiritualHabitLogInput"
+      responses:
+        "201":
+          description: Logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpiritualHabitLog"
+
+  /habits/spiritual/log/{id}:
+    patch:
+      operationId: updateSpiritualHabitLog
+      tags: [spiritual-habits]
+      summary: Update a spiritual habit log entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpiritualHabitLogUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpiritualHabitLog"
+
+  /habits/spiritual/worship:
+    post:
+      operationId: logWorshipAttendance
+      tags: [spiritual-habits]
+      summary: Log weekly worship attendance (SHC004)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorshipAttendanceInput"
+      responses:
+        "201":
+          description: Logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorshipAttendanceLog"
+
+  /habits/spiritual/huddle:
+    post:
+      operationId: logSharingHuddle
+      tags: [spiritual-habits]
+      summary: Log monthly sharing huddle attendance (SHC007)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SharingHuddleInput"
+      responses:
+        "201":
+          description: Logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharingHuddleLog"
+
+  /habits/spiritual/got:
+    post:
+      operationId: logGotHabit
+      tags: [spiritual-habits]
+      summary: Log GOT/Treasury submission (SHC003)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GotHabitInput"
+      responses:
+        "201":
+          description: Logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GotLog"
+
+  /habits/spiritual/biblical:
+    post:
+      operationId: logBiblicalNotes
+      tags: [spiritual-habits]
+      summary: Log biblical notes completion (SHC005)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BiblicalNotesInput"
+      responses:
+        "201":
+          description: Logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BiblicalNotesLog"
+
+  /habits/spiritual/cg:
+    post:
+      operationId: logCgAttendance
+      tags: [spiritual-habits]
+      summary: Log CG attendance (SHC006)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CgAttendanceInput"
+      responses:
+        "201":
+          description: Logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CgAttendanceLog"
+
+  /habits/spiritual/unlock:
+    post:
+      operationId: unlockHabitWeek
+      tags: [spiritual-habits]
+      summary: Unlock a closed week for a member (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WeekUnlockInput"
+      responses:
+        "200":
+          description: Week unlocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeekUnlockResult"
+        "403":
+          description: Forbidden — Admin only
+
+  /habits/unlock:
+    post:
+      operationId: unlockHabitWeekAlias
+      tags: [spiritual-habits]
+      summary: Unlock a closed week for a member — alias for /habits/spiritual/unlock (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WeekUnlockInput"
+      responses:
+        "200":
+          description: Week unlocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeekUnlockResult"
+        "403":
+          description: Forbidden — Admin only
+
+  # ─── PERSONAL HABITS ──────────────────────────────────────────────────────────
+  /habits/personal:
+    get:
+      operationId: getPersonalHabits
+      tags: [personal-habits]
+      summary: Get personal habit cards for current member
+      responses:
+        "200":
+          description: Personal habits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PersonalHabit"
+    post:
+      operationId: addPersonalHabit
+      tags: [personal-habits]
+      summary: Add a personal habit card (within PHOW window)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonalHabitInput"
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonalHabit"
+
+  /habits/personal/week:
+    get:
+      operationId: getPersonalHabitsWeek
+      tags: [personal-habits]
+      summary: Get personal habit cards with full week log grid
+      parameters:
+        - name: weekStart
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISO date of Sunday (defaults to current week)
+      responses:
+        "200":
+          description: Personal habits with weekly logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PersonalHabitWeek"
+
+  /habits/personal/{id}:
+    delete:
+      operationId: removePersonalHabit
+      tags: [personal-habits]
+      summary: Remove a personal habit card (within PHOW window)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+
+  /habits/personal/{id}/log:
+    post:
+      operationId: logPersonalHabit
+      tags: [personal-habits]
+      summary: Log personal habit progress
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PersonalHabitLogInput"
+      responses:
+        "201":
+          description: Logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonalHabitLog"
+
+  # ─── SHARING HABITS ───────────────────────────────────────────────────────────
+  /habits/sharing:
+    get:
+      operationId: getSharingHabits
+      tags: [sharing-habits]
+      summary: Get sharing habit data for current member
+      responses:
+        "200":
+          description: Sharing habit data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharingHabit"
+
+  /habits/sharing/preparation:
+    post:
+      operationId: logSharingPreparation
+      tags: [sharing-habits]
+      summary: Log sharing preparation (Level 1)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SharingPreparationInput"
+      responses:
+        "201":
+          description: Logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharingPreparation"
+
+  /habits/sharing/attempt:
+    post:
+      operationId: logSharingAttempt
+      tags: [sharing-habits]
+      summary: Log a sharing attempt (Level 2)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SharingAttemptInput"
+      responses:
+        "201":
+          description: Logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharingAttempt"
+
+  /habits/sharing/bearing:
+    post:
+      operationId: logBearingResult
+      tags: [sharing-habits]
+      summary: Log a bearing result / conversion (Level 3)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BearingResultInput"
+      responses:
+        "201":
+          description: Bearing logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BearingResult"
+
+  # ─── CHURCH HUB ───────────────────────────────────────────────────────────────
+  /church/sermons:
+    get:
+      operationId: listSermons
+      tags: [church-hub]
+      summary: List biblical message recordings
+      responses:
+        "200":
+          description: Sermons
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Sermon"
+    post:
+      operationId: createSermon
+      tags: [church-hub]
+      summary: Create a sermon entry (Admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SermonInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sermon"
+
+  /church/sermons/{id}:
+    patch:
+      operationId: updateSermon
+      tags: [church-hub]
+      summary: Update a sermon (Admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SermonUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sermon"
+    delete:
+      operationId: deleteSermon
+      tags: [church-hub]
+      summary: Delete a sermon (Admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /church/events:
+    get:
+      operationId: listEvents
+      tags: [church-hub]
+      summary: List church events
+      parameters:
+        - name: upcoming
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChurchEvent"
+    post:
+      operationId: createEvent
+      tags: [church-hub]
+      summary: Create a church event (Admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChurchEventInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChurchEvent"
+
+  /church/events/{id}:
+    patch:
+      operationId: updateEvent
+      tags: [church-hub]
+      summary: Update an event (Admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChurchEventUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChurchEvent"
+    delete:
+      operationId: deleteEvent
+      tags: [church-hub]
+      summary: Delete an event (Admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /church/guides:
+    get:
+      operationId: listGuides
+      tags: [church-hub]
+      summary: List church guides and feeds
+      responses:
+        "200":
+          description: Guides
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Guide"
+    post:
+      operationId: createGuide
+      tags: [church-hub]
+      summary: Create a guide (Admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuideInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Guide"
+
+  /church/guides/{id}:
+    patch:
+      operationId: updateGuide
+      tags: [church-hub]
+      summary: Update a guide (Admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuideUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Guide"
+    delete:
+      operationId: deleteGuide
+      tags: [church-hub]
+      summary: Delete a guide (Admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── ENGAGEMENT ───────────────────────────────────────────────────────────────
+  /engagement/prayer-requests:
+    get:
+      operationId: listPrayerRequests
+      tags: [engagement]
+      summary: List prayer requests visible to current user
+      responses:
+        "200":
+          description: Prayer requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PrayerRequest"
+    post:
+      operationId: createPrayerRequest
+      tags: [engagement]
+      summary: Submit a prayer request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrayerRequestInput"
+      responses:
+        "201":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrayerRequest"
+
+  /engagement/prayer-requests/{id}/complete:
+    patch:
+      operationId: completePrayerRequest
+      tags: [engagement]
+      summary: Mark a prayer request as done
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Marked done
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrayerRequest"
+
+  /engagement/prayer-requests/{id}:
+    patch:
+      operationId: updatePrayerRequest
+      tags: [engagement]
+      summary: Member edits own pending prayer request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrayerRequestUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrayerRequest"
+
+  /engagement/counseling:
+    get:
+      operationId: listCounselingRequests
+      tags: [engagement]
+      summary: List counseling requests
+      responses:
+        "200":
+          description: Counseling requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CounselingRequest"
+    post:
+      operationId: createCounselingRequest
+      tags: [engagement]
+      summary: Submit a counseling request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CounselingRequestInput"
+      responses:
+        "201":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CounselingRequest"
+
+  /engagement/counseling/{id}/complete:
+    patch:
+      operationId: completeCounselingRequest
+      tags: [engagement]
+      summary: Mark counseling as done
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Marked done
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CounselingRequest"
+
+  /engagement/counseling/{id}:
+    patch:
+      operationId: updateCounselingRequest
+      tags: [engagement]
+      summary: Member edits own pending counseling request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CounselingRequestUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CounselingRequest"
+
+  /engagement/counseling-requests/leaders:
+    get:
+      operationId: listCounselingLeaders
+      tags: [engagement]
+      summary: List members who can provide counseling (Pastor, Servant, Captain)
+      responses:
+        "200":
+          description: Counseling leader candidates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CounselingLeader"
+
+  /engagement/brethren-watch:
+    post:
+      operationId: createBrethrenWatch
+      tags: [engagement]
+      summary: Submit a Brethren Watch incident report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrethrenWatchInput"
+      responses:
+        "201":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrethrenWatch"
+
+  /engagement/brethren-watch/{id}/resolve:
+    patch:
+      operationId: resolveBrethrenWatch
+      tags: [engagement]
+      summary: Resolve a Brethren Watch report
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Resolved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrethrenWatch"
+
+  /engagement/feedback:
+    get:
+      operationId: listFeedback
+      tags: [engagement]
+      summary: List feedback submissions (Admin/Pastor see all with identity; anonymous submissions masked for others)
+      responses:
+        "200":
+          description: Feedback list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Feedback"
+    post:
+      operationId: submitFeedback
+      tags: [engagement]
+      summary: Submit church member feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedbackInput"
+      responses:
+        "201":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Feedback"
+
+  /engagement/feedback/{id}:
+    patch:
+      operationId: updateFeedback
+      tags: [engagement]
+      summary: Member edits own pending feedback
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedbackUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Feedback"
+
+  /engagement/feedback/{id}/advise:
+    patch:
+      operationId: adviseFeedback
+      tags: [engagement]
+      summary: Leader marks feedback as TakenIntoAdvisement
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Feedback"
+
+  # ─── STELLARBOARD ─────────────────────────────────────────────────────────────
+  /stellarboard:
+    get:
+      operationId: getStellarbBoard
+      tags: [stellarboard]
+      summary: Get stellarboard leaderboard
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Stellarboard rankings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StellarbBoard"
+
+  # ─── MINISTRY HUB ─────────────────────────────────────────────────────────────
+  /ministry/caring:
+    get:
+      operationId: getCaringHub
+      tags: [ministry]
+      summary: Get caring hub data for CG servant
+      parameters:
+        - name: weekStart
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Caring hub data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaringHubSummary"
+
+  /ministry/family:
+    get:
+      operationId: getFamilyHub
+      tags: [ministry]
+      summary: Get family hub data for Family Leader
+      parameters:
+        - name: weekStart
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Family hub data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyHubSummary"
+
+  /ministry/sharing:
+    get:
+      operationId: getSharingHub
+      tags: [ministry]
+      summary: Get sharing hub data for Sharing Huddle Captain
+      parameters:
+        - name: weekStart
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sharing hub data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharingHubSummary"
+
+  /ministry/treasury/cg:
+    get:
+      operationId: getCgTreasury
+      tags: [ministry]
+      summary: Get caregroup treasury data
+      parameters:
+        - name: weekStart
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: CG treasury data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CgTreasurySummary"
+
+  /ministry/treasury/church:
+    get:
+      operationId: getChurchTreasury
+      tags: [ministry]
+      summary: Get church treasury summary
+      parameters:
+        - name: weekStart
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Church treasury data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChurchTreasurySummary"
+
+  /ministry/nudge:
+    post:
+      operationId: nudgeMember
+      tags: [ministry]
+      summary: Send a scoped nudge/reminder to a member within the caller's authorized group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReminderInput"
+      responses:
+        "200":
+          description: Nudge sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderResult"
+
+  /ministry/remind:
+    post:
+      operationId: sendMemberReminder
+      tags: [ministry]
+      summary: Send a habit reminder to a CG member (Servant only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReminderInput"
+      responses:
+        "200":
+          description: Reminder sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderResult"
+
+  /ministry/pastor/overview:
+    get:
+      operationId: getPastorOverview
+      tags: [ministry]
+      summary: Pastor all-CGs compliance overview for a week
+      parameters:
+        - name: weekStart
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Pastor overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PastorOverview"
+
+  /ministry/audit/got:
+    get:
+      operationId: getAuditGot
+      tags: [ministry]
+      summary: List GOT submissions for auditor/servant verification
+      parameters:
+        - name: weekStart
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: GOT audit list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GotAuditList"
+
+  /ministry/audit/got/{id}:
+    patch:
+      operationId: verifyGotSubmission
+      tags: [ministry]
+      summary: Mark a GOT submission as Verified or Flagged
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifySubmissionInput"
+      responses:
+        "200":
+          description: Updated GOT log
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GotAuditEntry"
+
+  /ministry/audit/biblical:
+    get:
+      operationId: getAuditBiblical
+      tags: [ministry]
+      summary: List Biblical Notes submissions for auditor/servant verification
+      parameters:
+        - name: weekStart
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Biblical Notes audit list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BiblicalAuditList"
+
+  /ministry/audit/biblical/{id}:
+    patch:
+      operationId: verifyBiblicalSubmission
+      tags: [ministry]
+      summary: Mark a Biblical Notes submission as Verified or Flagged
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifySubmissionInput"
+      responses:
+        "200":
+          description: Updated Biblical Notes log
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BiblicalAuditEntry"
+
+  /ministry/audit/cg:
+    get:
+      operationId: getCgAuditView
+      tags: [ministry]
+      summary: CG Auditor full weekly habit view for their care group
+      parameters:
+        - name: weekStart
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: CG audit data (same shape as CaringHubSummary)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaringHubSummary"
+    post:
+      operationId: submitCgAuditSummary
+      tags: [ministry]
+      summary: Submit weekly CG audit summary for church review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuditSummaryInput"
+      responses:
+        "201":
+          description: Summary submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CgAuditSummaryRecord"
+
+  /ministry/audit/cg/history:
+    get:
+      operationId: getCgAuditHistory
+      tags: [ministry]
+      summary: List past CG audit summaries submitted by this auditor
+      responses:
+        "200":
+          description: Past CG summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CgAuditSummaryRecord"
+
+  /ministry/audit/church:
+    get:
+      operationId: getChurchAuditView
+      tags: [ministry]
+      summary: Church Auditor view of all CG summaries for a week
+      parameters:
+        - name: weekStart
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Church audit view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChurchAuditView"
+    post:
+      operationId: submitChurchAuditSummary
+      tags: [ministry]
+      summary: Submit church-level weekly audit summary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChurchAuditSummaryInput"
+      responses:
+        "201":
+          description: Church summary submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChurchAuditSummaryRecord"
+
+  /ministry/audit/church/history:
+    get:
+      operationId: getChurchAuditHistory
+      tags: [ministry]
+      summary: List past church-level audit summaries
+      responses:
+        "200":
+          description: Church summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChurchAuditSummaryRecord"
+
+  # ─── ADMIN ────────────────────────────────────────────────────────────────────
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get platform-wide admin statistics
+      responses:
+        "200":
+          description: Admin stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /admin/members/bulk-import:
+    post:
+      operationId: bulkImportMembers
+      tags: [admin]
+      summary: Bulk import members from PMDB spreadsheet data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkImportInput"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkImportResult"
+
+  /admin/members/bulk-reset-password:
+    post:
+      operationId: adminBulkResetPasswords
+      tags: [admin]
+      summary: Reset all members' passwords to one value (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPasswordReset"
+      responses:
+        "200":
+          description: Bulk reset result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [updated]
+                properties:
+                  updated:
+                    type: integer
+
+  /admin/members/{id}/reset-password:
+    post:
+      operationId: adminResetMemberPassword
+      tags: [admin]
+      summary: Reset a member's password (Admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPasswordReset"
+      responses:
+        "200":
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+                  mustChangePassword:
+                    type: boolean
+
+  /admin/members/{id}/roles:
+    patch:
+      operationId: updateMemberRoles
+      tags: [admin]
+      summary: Update a member's ministry roles array and group mappings (Admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RolesUpdate"
+      responses:
+        "200":
+          description: Roles updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+
+  /admin/members/{id}/discipleship:
+    patch:
+      operationId: updateMemberDiscipleship
+      tags: [admin]
+      summary: Toggle discipleship enabled/disabled for a member (Admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiscipleshipUpdate"
+      responses:
+        "200":
+          description: Discipleship status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+
+  /admin/annual-reset:
+    post:
+      operationId: adminAnnualReset
+      tags: [admin]
+      summary: Re-derive stellarFragments for all members for the given year (Admin only)
+      parameters:
+        - name: year
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Calendar year to recalculate (defaults to current year)
+      responses:
+        "200":
+          description: Reset complete
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, year, updated]
+                properties:
+                  success:
+                    type: boolean
+                  year:
+                    type: integer
+                  updated:
+                    type: integer
+                    description: Number of members whose stats were recalculated
+
+  /admin/stellar-status-approvals:
+    get:
+      operationId: listStellarApprovals
+      tags: [admin]
+      summary: List stellar status approval requests (Admin/Pastor)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+      responses:
+        "200":
+          description: Approval requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StellarStatusApproval"
+
+  /admin/stellar-status-approvals/{id}/approve:
+    post:
+      operationId: approveStellarStatus
+      tags: [admin]
+      summary: Approve a stellar status change request (Pastor only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StellarStatusApproval"
+
+  /admin/stellar-status-approvals/{id}/reject:
+    post:
+      operationId: rejectStellarStatus
+      tags: [admin]
+      summary: Reject a stellar status change request (Pastor only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StellarStatusApproval"
+
+  # ─── GROUPS ──────────────────────────────────────────────────────────────────
+  /groups:
+    get:
+      operationId: listGroups
+      tags: [groups]
+      summary: List groups (optionally filtered by type)
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [CareGroup, SharingHuddle, FamilyGroup]
+      responses:
+        "200":
+          description: List of groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Group"
+    post:
+      operationId: createGroup
+      tags: [groups]
+      summary: Create a group (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroupInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Group"
+
+  /groups/{id}:
+    patch:
+      operationId: updateGroup
+      tags: [groups]
+      summary: Update a group (Admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroupUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Group"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteGroup
+      tags: [groups]
+      summary: Delete a group (Admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── STORAGE ─────────────────────────────────────────────────────────────────
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlRequest"
+      responses:
+        "200":
+          description: Presigned upload URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+        "400":
+          description: Missing or invalid required fields.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Failed to generate upload URL.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /storage/public-objects/{filePath}:
+    get:
+      tags: [Storage]
+      operationId: getPublicObject
+      summary: Serve a public asset from PUBLIC_OBJECT_SEARCH_PATHS
+      parameters:
+        - name: filePath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Object content streamed with correct Content-Type.
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: File not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an object entity from PRIVATE_OBJECT_DIR
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Object content streamed with correct Content-Type.
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Object not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    LoginInput:
+      type: object
+      required: [churchId, password]
+      properties:
+        churchId:
+          type: string
+          description: PCM0001 or TCM0001 format
+        password:
+          type: string
+
+    AuthResult:
+      type: object
+      required: [member, token]
+      properties:
+        member:
+          $ref: "#/components/schemas/Member"
+        token:
+          type: string
+        passwordChangeRequired:
+          type: boolean
+          description: When true, member must change their password before accessing the app
+
+    ChangePasswordInput:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+        memberId:
+          type: ["integer", "null"]
+          description: Admin can reset for another member
+
+    Member:
+      type: object
+      required: [id, churchId, accountType, status, role, firstName, lastName, discipleshipEnabled, stellarStatus, isTestingAccount]
+      properties:
+        id:
+          type: integer
+        churchId:
+          type: string
+        accountType:
+          type: string
+          enum: [PCM, TCM]
+        status:
+          type: string
+          enum: [Active, Deactivated, Retired, Deleted]
+        role:
+          type: string
+          enum: [Admin, Pastor, Servant, SharingCaptain, CgAuditor, ChurchAuditor, Member]
+        firstName:
+          type: string
+        middleName:
+          type: ["string", "null"]
+        lastName:
+          type: string
+        nickname:
+          type: ["string", "null"]
+        gender:
+          type: ["string", "null"]
+          enum: [Male, Female, null]
+        birthday:
+          type: ["string", "null"]
+        civilStatus:
+          type: ["string", "null"]
+        weddingAnniversary:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        contactNumber:
+          type: ["string", "null"]
+        profilePicture:
+          type: ["string", "null"]
+        discipleshipEnabled:
+          type: boolean
+        sbgEndDate:
+          type: ["string", "null"]
+        stellarStatus:
+          type: string
+          enum: [SBG, P2S, S2B, P2G]
+        pendingStellarStatus:
+          type: ["string", "null"]
+          description: Status awaiting pastor approval
+        stellarStatusApprovedByPastor:
+          type: boolean
+        isTestingAccount:
+          type: boolean
+          description: Testing accounts are excluded from the real StellarBoard
+        mustChangePassword:
+          type: boolean
+          description: When true, member is required to change their password on next login
+        familyGroupNumber:
+          type: ["string", "null"]
+        familyRole:
+          type: ["string", "null"]
+        cgNumber:
+          type: ["string", "null"]
+        cgRole:
+          type: ["string", "null"]
+        sharingHuddleNumber:
+          type: ["string", "null"]
+        sharingHuddleRole:
+          type: ["string", "null"]
+        salvationDate:
+          type: ["string", "null"]
+        baptismDate:
+          type: ["string", "null"]
+        sharingPermissionDate:
+          type: ["string", "null"]
+        bearingDate:
+          type: ["string", "null"]
+        dedicationDate:
+          type: ["string", "null"]
+        ministryRoles:
+          type: ["array", "null"]
+          items:
+            type: string
+          description: Array of additional leadership roles held by this member
+        roleGroupMappings:
+          type: ["object", "null"]
+          additionalProperties:
+            type: string
+          description: Maps each leadership role to its assigned group number
+        foodPreferences:
+          type: ["string", "null"]
+        medicalCondition:
+          type: ["string", "null"]
+        bloodType:
+          type: ["string", "null"]
+        emergencyContactName:
+          type: ["string", "null"]
+        emergencyContactRelationship:
+          type: ["string", "null"]
+        emergencyContactNumber:
+          type: ["string", "null"]
+        timezone:
+          type: ["string", "null"]
+          description: IANA timezone string (e.g. "Asia/Manila"). Stored by the client on login and used for server-side streak-boundary and reminder calculations.
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    MemberInput:
+      type: object
+      required: [churchId, accountType, firstName, lastName, password]
+      properties:
+        churchId:
+          type: string
+        accountType:
+          type: string
+          enum: [PCM, TCM]
+        password:
+          type: string
+        firstName:
+          type: string
+        middleName:
+          type: ["string", "null"]
+        lastName:
+          type: string
+        nickname:
+          type: ["string", "null"]
+        gender:
+          type: ["string", "null"]
+        birthday:
+          type: ["string", "null"]
+        civilStatus:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        contactNumber:
+          type: ["string", "null"]
+        role:
+          type: string
+          enum: [Admin, Pastor, Servant, SharingCaptain, CgAuditor, ChurchAuditor, Member]
+        discipleshipEnabled:
+          type: boolean
+        sbgEndDate:
+          type: ["string", "null"]
+        familyGroupNumber:
+          type: ["string", "null"]
+        familyRole:
+          type: ["string", "null"]
+        cgNumber:
+          type: ["string", "null"]
+        cgRole:
+          type: ["string", "null"]
+        sharingHuddleNumber:
+          type: ["string", "null"]
+        sharingHuddleRole:
+          type: ["string", "null"]
+        salvationDate:
+          type: ["string", "null"]
+        baptismDate:
+          type: ["string", "null"]
+        stellarStatus:
+          type: string
+          enum: [SBG, P2S, S2B, P2G]
+
+    MemberUpdate:
+      type: object
+      properties:
+        firstName:
+          type: string
+        middleName:
+          type: ["string", "null"]
+        lastName:
+          type: string
+        nickname:
+          type: ["string", "null"]
+        gender:
+          type: ["string", "null"]
+        birthday:
+          type: ["string", "null"]
+        civilStatus:
+          type: ["string", "null"]
+        weddingAnniversary:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        contactNumber:
+          type: ["string", "null"]
+        profilePicture:
+          type: ["string", "null"]
+        discipleshipEnabled:
+          type: boolean
+        sbgEndDate:
+          type: ["string", "null"]
+        role:
+          type: string
+          enum: [Admin, Pastor, Servant, SharingCaptain, CgAuditor, ChurchAuditor, Member]
+        familyGroupNumber:
+          type: ["string", "null"]
+        familyRole:
+          type: ["string", "null"]
+        cgNumber:
+          type: ["string", "null"]
+        cgRole:
+          type: ["string", "null"]
+        sharingHuddleNumber:
+          type: ["string", "null"]
+        sharingHuddleRole:
+          type: ["string", "null"]
+        salvationDate:
+          type: ["string", "null"]
+        baptismDate:
+          type: ["string", "null"]
+        sharingPermissionDate:
+          type: ["string", "null"]
+        bearingDate:
+          type: ["string", "null"]
+        dedicationDate:
+          type: ["string", "null"]
+        ministryRoles:
+          type: ["array", "null"]
+          items:
+            type: string
+          description: Array of additional leadership roles held by this member
+        roleGroupMappings:
+          type: ["object", "null"]
+          additionalProperties:
+            type: string
+          description: Maps each leadership role to its assigned group number
+        foodPreferences:
+          type: ["string", "null"]
+        medicalCondition:
+          type: ["string", "null"]
+        bloodType:
+          type: ["string", "null"]
+        emergencyContactName:
+          type: ["string", "null"]
+        emergencyContactRelationship:
+          type: ["string", "null"]
+        emergencyContactNumber:
+          type: ["string", "null"]
+        isTestingAccount:
+          type: boolean
+          description: Mark as testing account (excluded from StellarBoard)
+
+    MemberStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [Active, Deactivated, Retired, Deleted]
+
+    StellarStatusUpdate:
+      type: object
+      required: [stellarStatus]
+      properties:
+        stellarStatus:
+          type: string
+          enum: [SBG, P2S, S2B, P2G]
+
+    PushTokenInput:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          description: Expo push token (ExponentPushToken[...])
+
+    TimezoneInput:
+      type: object
+      required: [timezone]
+      properties:
+        timezone:
+          type: string
+          description: IANA timezone string (e.g. "Asia/Manila", "America/New_York")
+
+    ProfileUpdate:
+      type: object
+      properties:
+        firstName:
+          type: string
+        middleName:
+          type: ["string", "null"]
+        lastName:
+          type: string
+        nickname:
+          type: ["string", "null"]
+        gender:
+          type: ["string", "null"]
+        birthday:
+          type: ["string", "null"]
+        civilStatus:
+          type: ["string", "null"]
+        weddingAnniversary:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        contactNumber:
+          type: ["string", "null"]
+        profilePicture:
+          type: ["string", "null"]
+        foodPreferences:
+          type: ["string", "null"]
+        medicalCondition:
+          type: ["string", "null"]
+        bloodType:
+          type: ["string", "null"]
+        emergencyContactName:
+          type: ["string", "null"]
+        emergencyContactRelationship:
+          type: ["string", "null"]
+        emergencyContactNumber:
+          type: ["string", "null"]
+        timezone:
+          type: ["string", "null"]
+          description: IANA timezone string (e.g. "Asia/Manila")
+
+    DashboardSummary:
+      type: object
+      required: [member, daysRemaining, stellarFragments, todayHabitStatus, recentActivity]
+      properties:
+        member:
+          $ref: "#/components/schemas/Member"
+        daysRemaining:
+          type: ["integer", "null"]
+        targetExpiryDate:
+          type: ["string", "null"]
+        stellarFragments:
+          type: integer
+        streakDays:
+          type: integer
+        todayHabitStatus:
+          $ref: "#/components/schemas/TodayHabitStatus"
+        recentActivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityItem"
+        pendingRequests:
+          type: array
+          items:
+            $ref: "#/components/schemas/PendingRequest"
+
+    TodayHabitStatus:
+      type: object
+      properties:
+        prayerLogged:
+          type: boolean
+        devotionLogged:
+          type: boolean
+        worshipAttendanceLogged:
+          type: boolean
+
+    ActivityItem:
+      type: object
+      required: [id, type, description, createdAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+
+    PendingRequest:
+      type: object
+      required: [id, type, fromName, createdAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [PrayerRequest, CounselingRequest, BrethrenWatch, Feedback]
+        fromName:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+
+    Notification:
+      type: object
+      required: [id, type, message, read, createdAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        message:
+          type: string
+        read:
+          type: boolean
+        createdAt:
+          type: string
+
+    WeekUnlockInput:
+      type: object
+      required: [weekStart]
+      properties:
+        weekStart:
+          type: string
+        memberId:
+          type: integer
+
+    WeekUnlockResult:
+      type: object
+      required: [ok, memberId, weekStart]
+      properties:
+        ok:
+          type: boolean
+        memberId:
+          type: integer
+        weekStart:
+          type: string
+
+    SpiritualHabitWeek:
+      type: object
+      required: [weekStart, weekEnd, prayer, devotion, worshipAttendance, biblicalNotes, cgAttendance, sharingHuddle, got]
+      properties:
+        weekStart:
+          type: string
+        weekEnd:
+          type: string
+        isUnlocked:
+          type: boolean
+        prayer:
+          $ref: "#/components/schemas/SpiritualHabitLog"
+        devotion:
+          $ref: "#/components/schemas/SpiritualHabitLog"
+        worshipAttendance:
+          $ref: "#/components/schemas/WorshipAttendanceLog"
+        biblicalNotes:
+          $ref: "#/components/schemas/BiblicalNotesLog"
+        cgAttendance:
+          $ref: "#/components/schemas/CgAttendanceLog"
+        sharingHuddle:
+          $ref: "#/components/schemas/SharingHuddleLog"
+        got:
+          $ref: "#/components/schemas/GotLog"
+
+    SpiritualHabitLog:
+      type: object
+      required: [id, habitCode, memberId, weekStart]
+      properties:
+        id:
+          type: integer
+        habitCode:
+          type: string
+        memberId:
+          type: integer
+        weekStart:
+          type: string
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/HabitDay"
+        totalDuration:
+          type: ["integer", "null"]
+        targetDuration:
+          type: ["integer", "null"]
+        isLocked:
+          type: boolean
+        stellarFragments:
+          type: integer
+
+    HabitDay:
+      type: object
+      required: [dayOfWeek, completed, compliant, committed]
+      properties:
+        dayOfWeek:
+          type: integer
+        completed:
+          type: boolean
+        compliant:
+          type: boolean
+        committed:
+          type: boolean
+        durationMinutes:
+          type: ["integer", "null"]
+        devotionType:
+          type: ["string", "null"]
+        devotionDetails:
+          type: ["string", "null"]
+
+    WorshipAttendanceLog:
+      type: object
+      properties:
+        id:
+          type: ["integer", "null"]
+        memberId:
+          type: ["integer", "null"]
+        date:
+          type: ["string", "null"]
+        attended:
+          type: ["boolean", "null"]
+        attendanceType:
+          type: ["string", "null"]
+          enum: [Online, Onsite, null]
+        absenceReason:
+          type: ["string", "null"]
+
+    BiblicalNotesLog:
+      type: object
+      properties:
+        id:
+          type: ["integer", "null"]
+        memberId:
+          type: ["integer", "null"]
+        date:
+          type: ["string", "null"]
+        noteType:
+          type: ["string", "null"]
+          enum: [Digital, HandWritten, null]
+        bsfWholeContext:
+          type: ["string", "null"]
+        bsfSource:
+          type: ["string", "null"]
+        bsfReceiver:
+          type: ["string", "null"]
+        bsfRelation:
+          type: ["string", "null"]
+        bsfSpecificTopic:
+          type: ["string", "null"]
+        bsfOutline:
+          type: ["string", "null"]
+        bsfApplication:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        bupSelection:
+          type: ["string", "null"]
+        isDone:
+          type: boolean
+
+    CgAttendanceLog:
+      type: object
+      properties:
+        id:
+          type: ["integer", "null"]
+        memberId:
+          type: ["integer", "null"]
+        date:
+          type: ["string", "null"]
+        attended:
+          type: ["boolean", "null"]
+        absenceReason:
+          type: ["string", "null"]
+        weeklyQuestion:
+          type: ["string", "null"]
+        weeklyAnswer:
+          type: ["string", "null"]
+        leaderVerified:
+          type: ["boolean", "null"]
+
+    SharingHuddleLog:
+      type: object
+      properties:
+        id:
+          type: ["integer", "null"]
+        memberId:
+          type: ["integer", "null"]
+        date:
+          type: ["string", "null"]
+        attended:
+          type: ["boolean", "null"]
+        absenceReason:
+          type: ["string", "null"]
+        monthlyQuestion:
+          type: ["string", "null"]
+        monthlyAnswer:
+          type: ["string", "null"]
+        captainVerified:
+          type: ["boolean", "null"]
+
+    GotLog:
+      type: object
+      properties:
+        id:
+          type: ["integer", "null"]
+        memberId:
+          type: ["integer", "null"]
+        weekStart:
+          type: ["string", "null"]
+        giftAmount:
+          type: ["number", "null"]
+        offeringAmount:
+          type: ["number", "null"]
+        tithesAmount:
+          type: ["number", "null"]
+        bobDeduction:
+          type: ["number", "null"]
+        bobReason:
+          type: ["string", "null"]
+        totalSubmission:
+          type: ["number", "null"]
+        submissionMethod:
+          type: ["string", "null"]
+        screenshotLink:
+          type: ["string", "null"]
+
+    WorshipAttendanceInput:
+      type: object
+      required: [weekStart, attended]
+      properties:
+        weekStart:
+          type: string
+        attended:
+          type: boolean
+        attendanceType:
+          type: ["string", "null"]
+          enum: [Online, Onsite, null]
+        absenceReason:
+          type: ["string", "null"]
+
+    SharingHuddleInput:
+      type: object
+      required: [weekStart, attended]
+      properties:
+        weekStart:
+          type: string
+        attended:
+          type: boolean
+        absenceReason:
+          type: ["string", "null"]
+        monthlyQuestion:
+          type: ["string", "null"]
+        monthlyAnswer:
+          type: ["string", "null"]
+
+    GotHabitInput:
+      type: object
+      required: [weekStart, submitted]
+      properties:
+        weekStart:
+          type: string
+        submitted:
+          type: boolean
+        giftAmount:
+          type: ["number", "null"]
+        offeringAmount:
+          type: ["number", "null"]
+        tithesAmount:
+          type: ["number", "null"]
+        bobDeduction:
+          type: ["number", "null"]
+        bobReason:
+          type: ["string", "null"]
+          enum: [Medical, Financial, Sharing, Internet, Food, null]
+        totalSubmission:
+          type: ["number", "null"]
+        submissionMethod:
+          type: ["string", "null"]
+          enum: [eWallet, BankTransfer, Cash, null]
+
+    BiblicalNotesInput:
+      type: object
+      required: [weekStart, isDone]
+      properties:
+        weekStart:
+          type: string
+        isDone:
+          type: boolean
+        noteType:
+          type: ["string", "null"]
+          enum: [Digital, HandWritten, null]
+        notes:
+          type: ["string", "null"]
+        bsfWholeContext:
+          type: ["string", "null"]
+        bsfSource:
+          type: ["string", "null"]
+        bsfReceiver:
+          type: ["string", "null"]
+        bsfRelation:
+          type: ["string", "null"]
+        bsfSpecificTopic:
+          type: ["string", "null"]
+        bsfOutline:
+          type: ["string", "null"]
+        bsfApplication:
+          type: ["string", "null"]
+        bupSelection:
+          type: ["string", "null"]
+          description: "Comma-separated BUP values: Direct God, Direct Prophet, Written Prophet, Direct Jesus, Direct Disciples, Written Disciples"
+
+    CgAttendanceInput:
+      type: object
+      required: [weekStart, attended]
+      properties:
+        weekStart:
+          type: string
+        attended:
+          type: boolean
+        absenceReason:
+          type: ["string", "null"]
+        weeklyQuestion:
+          type: ["string", "null"]
+        weeklyAnswer:
+          type: ["string", "null"]
+
+    SpiritualHabitLogInput:
+      type: object
+      required: [habitCode, weekStart]
+      properties:
+        habitCode:
+          type: string
+          enum: [SHC001, SHC002, SHC003, SHC004, SHC005, SHC006, SHC007]
+        weekStart:
+          type: string
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/HabitDay"
+        totalDuration:
+          type: ["integer", "null"]
+        targetDuration:
+          type: ["integer", "null"]
+
+    SpiritualHabitLogUpdate:
+      type: object
+      properties:
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/HabitDay"
+        totalDuration:
+          type: ["integer", "null"]
+        targetDuration:
+          type: ["integer", "null"]
+        attended:
+          type: ["boolean", "null"]
+        attendanceType:
+          type: ["string", "null"]
+        absenceReason:
+          type: ["string", "null"]
+        weeklyQuestion:
+          type: ["string", "null"]
+        weeklyAnswer:
+          type: ["string", "null"]
+        noteType:
+          type: ["string", "null"]
+        bsfWholeContext:
+          type: ["string", "null"]
+        bsfSource:
+          type: ["string", "null"]
+        bsfReceiver:
+          type: ["string", "null"]
+        bsfRelation:
+          type: ["string", "null"]
+        bsfSpecificTopic:
+          type: ["string", "null"]
+        bsfOutline:
+          type: ["string", "null"]
+        bsfApplication:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        bupSelection:
+          type: ["string", "null"]
+        isDone:
+          type: ["boolean", "null"]
+        giftAmount:
+          type: ["number", "null"]
+        offeringAmount:
+          type: ["number", "null"]
+        tithesAmount:
+          type: ["number", "null"]
+        bobDeduction:
+          type: ["number", "null"]
+        bobReason:
+          type: ["string", "null"]
+        submissionMethod:
+          type: ["string", "null"]
+
+    PersonalHabit:
+      type: object
+      required: [id, memberId, habitCode, habitName, aspect, frequency, isActive, createdAt]
+      properties:
+        id:
+          type: integer
+        memberId:
+          type: integer
+        habitCode:
+          type: string
+        habitName:
+          type: string
+        aspect:
+          type: string
+          enum: [Physical, Mental, Financial, SelfControl]
+        frequency:
+          type: string
+          enum: [Daily, Weekly, Monthly, Custom]
+        description:
+          type: ["string", "null"]
+        isCustom:
+          type: boolean
+        isActive:
+          type: boolean
+        stellarFragments:
+          type: integer
+        currentStreak:
+          type: integer
+        todayCompleted:
+          type: boolean
+          description: Whether this habit has been logged as completed for today
+        boundType:
+          type: ["string", "null"]
+          description: "time | calorie | volume | count | negative | bp | weight | custom"
+        targetValue:
+          type: ["number", "null"]
+        targetUnit:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    PersonalHabitInput:
+      type: object
+      required: [habitCode, habitName, aspect, frequency]
+      properties:
+        habitCode:
+          type: string
+        habitName:
+          type: string
+        aspect:
+          type: string
+          enum: [Physical, Mental, Financial, SelfControl]
+        frequency:
+          type: string
+          enum: [Daily, Weekly, Monthly, Custom]
+        description:
+          type: ["string", "null"]
+        isCustom:
+          type: boolean
+        boundType:
+          type: ["string", "null"]
+        targetValue:
+          type: ["number", "null"]
+        targetUnit:
+          type: ["string", "null"]
+
+    PersonalHabitLog:
+      type: object
+      required: [id, personalHabitId, memberId, logDate]
+      properties:
+        id:
+          type: integer
+        personalHabitId:
+          type: integer
+        memberId:
+          type: integer
+        logDate:
+          type: string
+        completed:
+          type: boolean
+        compliant:
+          type: boolean
+        committed:
+          type: boolean
+        durationMinutes:
+          type: ["integer", "null"]
+        metricValue:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+        stellarFragmentsEarned:
+          type: integer
+
+    PersonalHabitLogInput:
+      type: object
+      required: [logDate, completed]
+      properties:
+        logDate:
+          type: string
+        completed:
+          type: boolean
+        compliant:
+          type: boolean
+        committed:
+          type: boolean
+        durationMinutes:
+          type: ["integer", "null"]
+        metricValue:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+
+    PersonalHabitDayLog:
+      type: object
+      properties:
+        dayOfWeek:
+          type: integer
+          description: 0=Sun, 1=Mon, … 6=Sat
+        logDate:
+          type: string
+        completed:
+          type: boolean
+        compliant:
+          type: boolean
+        committed:
+          type: boolean
+        durationMinutes:
+          type: ["integer", "null"]
+        metricValue:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+
+    PersonalHabitWeek:
+      type: object
+      required: [id, habitCode, habitName, aspect, frequency, createdAt, weekLogs]
+      properties:
+        id:
+          type: integer
+        habitCode:
+          type: string
+        habitName:
+          type: string
+        aspect:
+          type: string
+        frequency:
+          type: string
+        description:
+          type: ["string", "null"]
+        isCustom:
+          type: boolean
+        stellarFragments:
+          type: integer
+        currentStreak:
+          type: integer
+        boundType:
+          type: ["string", "null"]
+        targetValue:
+          type: ["number", "null"]
+        targetUnit:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          description: ISO date string of when the habit was created (used for date-guard on logging)
+        weekLogs:
+          type: array
+          items:
+            $ref: "#/components/schemas/PersonalHabitDayLog"
+
+    SharingHabit:
+      type: object
+      required: [level, preparations, attempts, bearings]
+      properties:
+        level:
+          type: integer
+          enum: [1, 2, 3]
+        preparations:
+          type: array
+          items:
+            $ref: "#/components/schemas/SharingPreparation"
+        attempts:
+          type: array
+          items:
+            $ref: "#/components/schemas/SharingAttempt"
+        bearings:
+          type: array
+          items:
+            $ref: "#/components/schemas/BearingResult"
+        totalBearings:
+          type: integer
+
+    SharingPreparation:
+      type: object
+      required: [id, memberId, weekStart]
+      properties:
+        id:
+          type: integer
+        memberId:
+          type: integer
+        weekStart:
+          type: string
+        lessonReviewed:
+          type: boolean
+        scriptPrepared:
+          type: boolean
+        prayedForTarget:
+          type: boolean
+        confidenceStatus:
+          type: boolean
+
+    SharingPreparationInput:
+      type: object
+      required: [weekStart]
+      properties:
+        weekStart:
+          type: string
+        lessonReviewed:
+          type: boolean
+        scriptPrepared:
+          type: boolean
+        prayedForTarget:
+          type: boolean
+        confidenceStatus:
+          type: boolean
+
+    SharingAttempt:
+      type: object
+      required: [id, memberId, attemptDate, targetName]
+      properties:
+        id:
+          type: integer
+        memberId:
+          type: integer
+        attemptDate:
+          type: string
+        targetName:
+          type: string
+        sharingMethod:
+          type: ["string", "null"]
+          enum: [LendPhysicalBook, LendWebBookPassword, null]
+        expectedResponseDate:
+          type: ["string", "null"]
+        followUpDate:
+          type: ["string", "null"]
+        result:
+          type: ["string", "null"]
+
+    SharingAttemptInput:
+      type: object
+      required: [attemptDate, targetName]
+      properties:
+        attemptDate:
+          type: string
+        targetName:
+          type: string
+        sharingMethod:
+          type: ["string", "null"]
+        expectedResponseDate:
+          type: ["string", "null"]
+        followUpDate:
+          type: ["string", "null"]
+        result:
+          type: ["string", "null"]
+
+    BearingResult:
+      type: object
+      required: [id, memberId, bearingDate, believerName]
+      properties:
+        id:
+          type: integer
+        memberId:
+          type: integer
+        bearingDate:
+          type: string
+        believerName:
+          type: string
+
+    BearingResultInput:
+      type: object
+      required: [bearingDate, believerName]
+      properties:
+        bearingDate:
+          type: string
+        believerName:
+          type: string
+
+    Sermon:
+      type: object
+      required: [id, title, speaker, publishDate, createdAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        speaker:
+          type: string
+        publishDate:
+          type: string
+        shortDescription:
+          type: ["string", "null"]
+        driveLink:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    SermonInput:
+      type: object
+      required: [title, speaker, publishDate]
+      properties:
+        title:
+          type: string
+        speaker:
+          type: string
+        publishDate:
+          type: string
+        shortDescription:
+          type: ["string", "null"]
+        driveLink:
+          type: ["string", "null"]
+
+    SermonUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        speaker:
+          type: string
+        publishDate:
+          type: string
+        shortDescription:
+          type: ["string", "null"]
+        driveLink:
+          type: ["string", "null"]
+
+    ChurchEvent:
+      type: object
+      required: [id, title, eventDate, eventType, createdAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        eventDate:
+          type: string
+        location:
+          type: ["string", "null"]
+        meetLink:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        eventType:
+          type: string
+          enum: [Worship, Caregroup, "Sharing Huddle", "Special Event", "On-site Event", "In Memory of the Lord Jesus", "Church Celebration"]
+        createdAt:
+          type: string
+
+    ChurchEventInput:
+      type: object
+      required: [title, eventDate, eventType]
+      properties:
+        title:
+          type: string
+        eventDate:
+          type: string
+        location:
+          type: ["string", "null"]
+        meetLink:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        eventType:
+          type: string
+          enum: [Worship, Caregroup, "Sharing Huddle", "Special Event", "On-site Event", "In Memory of the Lord Jesus", "Church Celebration"]
+
+    ChurchEventUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        eventDate:
+          type: string
+        location:
+          type: ["string", "null"]
+        meetLink:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        eventType:
+          type: string
+
+    Guide:
+      type: object
+      required: [id, title, guideType, targetLevel, createdAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        driveLink:
+          type: ["string", "null"]
+        guideType:
+          type: string
+          enum: [ApplicationUserGuide, MinistryGuide, MinisterGuide]
+        targetLevel:
+          type: string
+          enum: [ChurchLevel, CaregroupLevel, SharingHuddleLevel, AuditorLevel, AdminLevel, PastorLevel]
+        createdAt:
+          type: string
+
+    GuideInput:
+      type: object
+      required: [title, guideType, targetLevel]
+      properties:
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        driveLink:
+          type: ["string", "null"]
+        guideType:
+          type: string
+          enum: [ApplicationUserGuide, MinistryGuide, MinisterGuide]
+        targetLevel:
+          type: string
+          enum: [ChurchLevel, CaregroupLevel, SharingHuddleLevel, AuditorLevel, AdminLevel, PastorLevel]
+
+    GuideUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        driveLink:
+          type: ["string", "null"]
+        guideType:
+          type: string
+          enum: [ApplicationUserGuide, MinistryGuide, MinisterGuide]
+        targetLevel:
+          type: string
+          enum: [ChurchLevel, CaregroupLevel, SharingHuddleLevel, AuditorLevel, AdminLevel, PastorLevel]
+
+    PrayerRequest:
+      type: object
+      required: [id, memberId, description, visibility, isDone, createdAt]
+      properties:
+        id:
+          type: integer
+        memberId:
+          type: integer
+        memberName:
+          type: string
+        description:
+          type: string
+        visibility:
+          type: string
+          enum: [Church, PastorOnly, ServantOnly, CaptainOnly]
+        isDone:
+          type: boolean
+        doneByName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    PrayerRequestInput:
+      type: object
+      required: [description, visibility]
+      properties:
+        description:
+          type: string
+        visibility:
+          type: string
+          enum: [Church, PastorOnly, ServantOnly, CaptainOnly]
+
+    CounselingRequest:
+      type: object
+      required: [id, memberId, reason, preferredDate, connectType, counselorTarget, isDone, createdAt]
+      properties:
+        id:
+          type: integer
+        memberId:
+          type: integer
+        memberName:
+          type: string
+        reason:
+          type: string
+        preferredDate:
+          type: string
+        connectType:
+          type: string
+          enum: [Online, InPerson]
+        counselorTarget:
+          type: string
+          enum: [Pastor, Servant, Captain]
+        isDone:
+          type: boolean
+        createdAt:
+          type: string
+
+    CounselingRequestInput:
+      type: object
+      required: [reason, preferredDate, connectType, counselorTarget]
+      properties:
+        reason:
+          type: string
+        preferredDate:
+          type: string
+        connectType:
+          type: string
+          enum: [Online, InPerson]
+        counselorTarget:
+          type: string
+          enum: [Pastor, Servant, Captain]
+
+    BrethrenWatch:
+      type: object
+      required: [id, reportedMemberId, incidentDescription, isResolved, createdAt]
+      properties:
+        id:
+          type: integer
+        reportedMemberId:
+          type: integer
+        reportedMemberName:
+          type: string
+        leaderRoute:
+          type: string
+        incidentDescription:
+          type: string
+        isResolved:
+          type: boolean
+        createdAt:
+          type: string
+
+    BrethrenWatchInput:
+      type: object
+      required: [reportedMemberId, leaderRoute, incidentDescription]
+      properties:
+        reportedMemberId:
+          type: integer
+        leaderRoute:
+          type: string
+          enum: [Pastor, Servant, Captain, FamilyLeader]
+        incidentDescription:
+          type: string
+
+    Feedback:
+      type: object
+      required: [id, categoryTitle, description, status, isAnonymous, createdAt]
+      properties:
+        id:
+          type: integer
+        memberId:
+          type: integer
+          nullable: true
+        categoryTitle:
+          type: string
+        description:
+          type: string
+        isAnonymous:
+          type: boolean
+        status:
+          type: string
+          enum: [Pending, TakenIntoAdvisement]
+        createdAt:
+          type: string
+
+    FeedbackInput:
+      type: object
+      required: [categoryTitle, description]
+      properties:
+        categoryTitle:
+          type: string
+        description:
+          type: string
+        isAnonymous:
+          type: boolean
+
+    PrayerRequestUpdate:
+      type: object
+      properties:
+        description:
+          type: string
+        visibility:
+          type: string
+          enum: [Church, PastorOnly, ServantOnly, CaptainOnly]
+
+    CounselingRequestUpdate:
+      type: object
+      properties:
+        reason:
+          type: string
+        preferredDate:
+          type: string
+        connectType:
+          type: string
+          enum: [Online, InPerson]
+        counselorTarget:
+          type: string
+          enum: [Pastor, Servant, Captain]
+
+    FeedbackUpdate:
+      type: object
+      properties:
+        categoryTitle:
+          type: string
+        description:
+          type: string
+        isAnonymous:
+          type: boolean
+
+    StellarbBoard:
+      type: object
+      required: [year, rankings]
+      properties:
+        year:
+          type: integer
+        rankings:
+          type: array
+          items:
+            $ref: "#/components/schemas/StellarbBoardEntry"
+        lastReset:
+          type: ["string", "null"]
+        isTestMode:
+          type: boolean
+          description: True when viewing the test-account leaderboard
+
+    StellarbBoardEntry:
+      type: object
+      required: [rank, churchId, stellarFragments, spiritualFragments, personalFragments, bestStreak, stellarStatus]
+      properties:
+        rank:
+          type: integer
+        churchId:
+          type: string
+        stellarFragments:
+          type: integer
+        spiritualFragments:
+          type: integer
+        personalFragments:
+          type: integer
+        bestStreak:
+          type: integer
+        stellarStatus:
+          type: string
+
+    CaringHubSummary:
+      type: object
+      required: [cgNumber, weekStart, members]
+      properties:
+        cgNumber:
+          type: string
+        weekStart:
+          type: string
+        totalMembers:
+          type: integer
+        prayerCompliance:
+          type: number
+        devotionCompliance:
+          type: number
+        worshipCompliance:
+          type: number
+        gotCompliance:
+          type: number
+        biblicalCompliance:
+          type: number
+        cgAttendanceCompliance:
+          type: number
+        huddleCompliance:
+          type: number
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemberComplianceRow"
+
+    FamilyHubSummary:
+      type: object
+      required: [familyGroupNumber, weekStart, members]
+      properties:
+        familyGroupNumber:
+          type: string
+        weekStart:
+          type: string
+        totalMembers:
+          type: integer
+        prayerCompliance:
+          type: number
+        devotionCompliance:
+          type: number
+        worshipCompliance:
+          type: number
+        gotCompliance:
+          type: number
+        biblicalCompliance:
+          type: number
+        cgAttendanceCompliance:
+          type: number
+        huddleCompliance:
+          type: number
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemberComplianceRow"
+
+    SharingHubSummary:
+      type: object
+      required: [sharingHuddleNumber, members]
+      properties:
+        sharingHuddleNumber:
+          type: string
+        month:
+          type: string
+        totalMembers:
+          type: integer
+        totalPreparations:
+          type: integer
+        totalAttempts:
+          type: integer
+        totalBearings:
+          type: integer
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/SharingMemberRow"
+
+    SharingMemberRow:
+      type: object
+      required: [memberId, churchId, firstName, lastName, stellarStatus]
+      properties:
+        memberId:
+          type: integer
+        churchId:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        stellarStatus:
+          type: string
+        preparations:
+          type: integer
+        attempts:
+          type: integer
+        bearings:
+          type: integer
+        stellarFragments:
+          type: integer
+
+    ReminderInput:
+      type: object
+      required: [memberId]
+      properties:
+        memberId:
+          type: integer
+        message:
+          type: string
+          nullable: true
+        weekStart:
+          type: string
+          nullable: true
+
+    ReminderResult:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+
+    AuditSummaryInput:
+      type: object
+      required: [weekStart, summary]
+      properties:
+        weekStart:
+          type: string
+        summary:
+          type: string
+        observations:
+          type: string
+          nullable: true
+
+    CgAuditSummaryRecord:
+      type: object
+      required: [id, cgNumber, weekStart, summary, submittedAt, status]
+      properties:
+        id:
+          type: integer
+        cgNumber:
+          type: string
+        weekStart:
+          type: string
+        summary:
+          type: string
+        observations:
+          type: string
+          nullable: true
+        submittedAt:
+          type: string
+        status:
+          type: string
+
+    ChurchAuditView:
+      type: object
+      required: [weekStart, cgSummaries]
+      properties:
+        weekStart:
+          type: string
+        cgSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/CgAuditSummaryRecord"
+        existingChurchSummary:
+          $ref: "#/components/schemas/ChurchAuditSummaryRecord"
+          nullable: true
+
+    ChurchAuditSummaryInput:
+      type: object
+      required: [weekStart, summary]
+      properties:
+        weekStart:
+          type: string
+        summary:
+          type: string
+        observations:
+          type: string
+          nullable: true
+        totalCgsReported:
+          type: integer
+          nullable: true
+
+    ChurchAuditSummaryRecord:
+      type: object
+      required: [id, weekStart, summary, submittedAt]
+      properties:
+        id:
+          type: integer
+        weekStart:
+          type: string
+        summary:
+          type: string
+        observations:
+          type: string
+          nullable: true
+        totalCgsReported:
+          type: integer
+          nullable: true
+        submittedAt:
+          type: string
+
+    PastorCgRow:
+      type: object
+      required: [cgNumber, totalMembers]
+      properties:
+        cgNumber:
+          type: string
+        totalMembers:
+          type: integer
+        prayerCompliance:
+          type: number
+        devotionCompliance:
+          type: number
+        worshipCompliance:
+          type: number
+        gotCompliance:
+          type: number
+        biblicalCompliance:
+          type: number
+        cgAttendanceCompliance:
+          type: number
+        huddleCompliance:
+          type: number
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemberComplianceRow"
+
+    PastorOverview:
+      type: object
+      required: [weekStart, cgs]
+      properties:
+        weekStart:
+          type: string
+        totalCgs:
+          type: integer
+        cgs:
+          type: array
+          items:
+            $ref: "#/components/schemas/PastorCgRow"
+
+    MemberComplianceRow:
+      type: object
+      required: [memberId, churchId, firstName, lastName, stellarStatus]
+      properties:
+        memberId:
+          type: integer
+        churchId:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        stellarStatus:
+          type: string
+        prayerCompleted:
+          type: boolean
+        devotionCompleted:
+          type: boolean
+        worshipAttended:
+          type: boolean
+        gotSubmitted:
+          type: boolean
+        biblicalDone:
+          type: boolean
+        cgAttended:
+          type: boolean
+        huddleAttended:
+          type: boolean
+        personalDone:
+          type: integer
+        personalTotal:
+          type: integer
+        stellarFragments:
+          type: integer
+        currentStreak:
+          type: integer
+
+    CgTreasurySummary:
+      type: object
+      required: [cgNumber, weekStart, totalGift, totalOffering, totalTithes, totalBob, grandTotal]
+      properties:
+        cgNumber:
+          type: string
+        weekStart:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/GotEntry"
+          nullable: true
+        totalGift:
+          type: number
+        totalOffering:
+          type: number
+        totalTithes:
+          type: number
+        totalBob:
+          type: number
+        grandTotal:
+          type: number
+        isFinalized:
+          type: boolean
+
+    ChurchTreasurySummary:
+      type: object
+      required: [weekStart, cgSummaries, churchTotal, isFinalized]
+      properties:
+        weekStart:
+          type: string
+        cgSummaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/CgTreasurySummary"
+        churchTotal:
+          type: object
+          required: [totalGift, totalOffering, totalTithes, totalBob, grandTotal]
+          properties:
+            totalGift:
+              type: number
+            totalOffering:
+              type: number
+            totalTithes:
+              type: number
+            totalBob:
+              type: number
+            grandTotal:
+              type: number
+        isFinalized:
+          type: boolean
+        expenses:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChurchExpense"
+
+    GotEntry:
+      type: object
+      required: [memberId, churchId, firstName, lastName]
+      properties:
+        memberId:
+          type: integer
+        churchId:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        giftAmount:
+          type: ["number", "null"]
+        offeringAmount:
+          type: ["number", "null"]
+        tithesAmount:
+          type: ["number", "null"]
+        bobDeduction:
+          type: ["number", "null"]
+        totalSubmission:
+          type: ["number", "null"]
+
+    GotAuditEntry:
+      type: object
+      required: [id, memberId, churchId, firstName, lastName, weekStart]
+      properties:
+        id:
+          type: integer
+        memberId:
+          type: integer
+        churchId:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        weekStart:
+          type: string
+        giftAmount:
+          type: ["number", "null"]
+        offeringAmount:
+          type: ["number", "null"]
+        tithesAmount:
+          type: ["number", "null"]
+        bobDeduction:
+          type: ["number", "null"]
+        bobReason:
+          type: ["string", "null"]
+        totalSubmission:
+          type: ["number", "null"]
+        submissionMethod:
+          type: ["string", "null"]
+        screenshotLink:
+          type: ["string", "null"]
+        verificationStatus:
+          type: ["string", "null"]
+
+    GotAuditList:
+      type: object
+      required: [weekStart, entries]
+      properties:
+        weekStart:
+          type: string
+        scope:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/GotAuditEntry"
+        totalSubmission:
+          type: number
+
+    BiblicalAuditEntry:
+      type: object
+      required: [id, memberId, churchId, firstName, lastName, noteDate]
+      properties:
+        id:
+          type: integer
+        memberId:
+          type: integer
+        churchId:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        noteDate:
+          type: string
+        noteType:
+          type: ["string", "null"]
+        isDone:
+          type: boolean
+        verificationStatus:
+          type: ["string", "null"]
+
+    BiblicalAuditList:
+      type: object
+      required: [weekStart, entries]
+      properties:
+        weekStart:
+          type: string
+        scope:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/BiblicalAuditEntry"
+
+    VerifySubmissionInput:
+      type: object
+      required: [verificationStatus]
+      properties:
+        verificationStatus:
+          type: string
+          enum: [Verified, Flagged, Pending]
+
+    ChurchExpense:
+      type: object
+      required: [id, date, category, amount]
+      properties:
+        id:
+          type: integer
+        date:
+          type: string
+        category:
+          type: string
+        amount:
+          type: number
+        notes:
+          type: ["string", "null"]
+
+    RolesUpdate:
+      type: object
+      required: [ministryRoles]
+      properties:
+        ministryRoles:
+          type: array
+          items:
+            type: string
+          description: Full array of leadership roles for the member
+        roleGroupMappings:
+          type: object
+          additionalProperties:
+            type: string
+          description: Maps each leadership role to its assigned group number
+
+    DiscipleshipUpdate:
+      type: object
+      required: [discipleshipEnabled]
+      properties:
+        discipleshipEnabled:
+          type: boolean
+          description: When false, the member cannot access Disciple Hub
+
+    AdminPasswordReset:
+      type: object
+      required: [password]
+      properties:
+        password:
+          type: string
+          minLength: 6
+        temporary:
+          type: boolean
+          description: When true, member must change this password on next login
+          default: false
+
+    AdminStats:
+      type: object
+      required: [totalMembers, activeMembers, testMembers, sbgMembers, p2sMembers, s2bMembers, p2gMembers, totalStellarFragments, averageComplianceRate]
+      properties:
+        totalMembers:
+          type: integer
+        activeMembers:
+          type: integer
+        testMembers:
+          type: integer
+        sbgMembers:
+          type: integer
+        p2sMembers:
+          type: integer
+        s2bMembers:
+          type: integer
+        p2gMembers:
+          type: integer
+        totalStellarFragments:
+          type: integer
+        averageComplianceRate:
+          type: number
+        recentRegistrations:
+          type: integer
+        pendingFirstLogin:
+          type: integer
+          description: Number of members who still have mustChangePassword=true (haven't set a personal password yet)
+
+    BulkImportInput:
+      type: object
+      required: [members]
+      properties:
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemberInput"
+
+    BulkImportResult:
+      type: object
+      required: [imported, skipped, errors]
+      properties:
+        imported:
+          type: integer
+        skipped:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+
+    ForgotPasswordInput:
+      type: object
+      required: [churchId, email]
+      properties:
+        churchId:
+          type: string
+        email:
+          type: string
+    PasswordResetTokenResponse:
+      type: object
+      required: [resetToken]
+      properties:
+        resetToken:
+          type: string
+    ResetPasswordInput:
+      type: object
+      required: [resetToken, newPassword]
+      properties:
+        resetToken:
+          type: string
+        newPassword:
+          type: string
+          minLength: 6
+
+    Group:
+      type: object
+      required: [id, type, number]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [CareGroup, SharingHuddle, FamilyGroup]
+        number:
+          type: string
+        name:
+          type: ["string", "null"]
+        leaderId:
+          type: ["integer", "null"]
+        description:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+    GroupInput:
+      type: object
+      required: [type, number]
+      properties:
+        type:
+          type: string
+          enum: [CareGroup, SharingHuddle, FamilyGroup]
+        number:
+          type: string
+        name:
+          type: ["string", "null"]
+        leaderId:
+          type: ["integer", "null"]
+        description:
+          type: ["string", "null"]
+    GroupUpdate:
+      type: object
+      properties:
+        number:
+          type: string
+        name:
+          type: ["string", "null"]
+        leaderId:
+          type: ["integer", "null"]
+        description:
+          type: ["string", "null"]
+
+    StellarStatusChangeResult:
+      type: object
+      required: [member, approval]
+      description: Result of submitting a stellar status change request
+      properties:
+        member:
+          $ref: "#/components/schemas/Member"
+        approval:
+          $ref: "#/components/schemas/StellarStatusApproval"
+
+    StellarStatusApproval:
+      type: object
+      required: [id, memberId, requestedStatus, requestedById, status, createdAt]
+      properties:
+        id:
+          type: integer
+        memberId:
+          type: integer
+        memberName:
+          type: ["string", "null"]
+        memberChurchId:
+          type: ["string", "null"]
+        currentStatus:
+          type: ["string", "null"]
+        requestedStatus:
+          type: string
+          enum: [SBG, P2S, S2B, P2G]
+        requestedById:
+          type: integer
+        requestedByName:
+          type: ["string", "null"]
+        approvedById:
+          type: ["integer", "null"]
+        approvedByName:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    CounselingLeader:
+      type: object
+      required: [id, churchId, firstName, lastName, role]
+      properties:
+        id:
+          type: integer
+        churchId:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+          enum: [Pastor, Servant, SharingCaptain]
+
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        size:
+          type: integer
+          minimum: 1
+        contentType:
+          type: string
+          minLength: 1
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+          format: uri
+        objectPath:
+          type: string
+        metadata:
+          $ref: "#/components/schemas/UploadUrlRequest"
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string

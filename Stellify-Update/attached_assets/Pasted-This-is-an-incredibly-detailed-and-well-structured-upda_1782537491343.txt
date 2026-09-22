@@ -1,0 +1,84 @@
+This is an incredibly detailed and well-structured update. Adding the specific Habit Codes (SHC001–SHC007) and the exact data fields for the Biblical Message Notes (BSF/BUP) will give Replit exactly what it needs to build the database models correctly the first time.
+
+Here is the fully integrated, step-by-step developer prompt ready to be pasted directly into Replit.
+
+---
+
+### 📋 Copy & Paste This Prompt into Replit
+
+**Prompt:**
+"I have a major feature expansion and schema update for the Stellify web application. Please execute these updates step-by-step. Read all requirements carefully, as we are restructuring the Habit tracking logic, adding complex scoring systems, and implementing specific data models.
+
+**Step 1: Database Schema & Authentication UI Updates**
+
+* **Users/Members Table:** Add the following date fields: `salvation_date`, `bearing_date`, `dedication_date`, and `permission_to_share_date`.
+* **UI Integration:** Add these four date fields as input options on the **Member Registration Form**, the **Admin Panel (Manage/Update Members)**, and the **Member 'My Profile' section**.
+* Add a boolean field `is_testing_account` (default false).
+* Add a field `pending_stellar_status` and `stellar_status_approved_by_pastor` (boolean) to handle pastor approvals.
+
+**Step 2: The Pastor Panel (Ministry Hub)**
+
+* Create a new subtab under the 'Ministry Hub' called 'Pastor Panel'.
+* **Access Control:** This tab must be strictly visible and accessible *only* to users with the `Pastor` role.
+* **Functionality:** Create an inbox-style dashboard where the Pastor receives all Pending Approval Requests (like Stellar Status changes), Counseling Requests, and Prayer Requests. Provide action buttons (e.g., 'Approve', 'Mark as Completed').
+
+**Step 3: Member Dashboard & Landing Page UI**
+
+* **Stellar Status Legend:** On the landing page, display a clear legend for the acronyms: SBG (Saved by Grace), P2S (Permitted to Share), S2B (Sharing to Bear), and P2G (Pleasing to God).
+* **Bearing Counter UI:** Build a visual countdown/tracker for members tracking a 3-year span to reach the 'Bearing' status.
+* **Habit Analytics Dashboard:** Add a visual dashboard showing completed, missed, current streaks, and total Stellar Fragments earned. Include a global Date Filter (defaulting to the Current Week) and an 'Extract Details' (Export to CSV) button.
+
+**Step 4: Disciple Hub: The Habit Engine (Global Rules)**
+
+* Restructure the Discipleship Hub to have exactly THREE main tabs: **Spiritual Habits (Static)**, **Personal Habits (Dynamic)**, and **Sharing Habits**.
+* **Global Locking Rule:** All habit submissions are due by the succeeding Sunday at 7:30 AM. After this time, the previous week's report locks and cannot be edited.
+* **The 'Stellify Habit Card' (SHC) Matrix:** Once a user selects a habit for the week, it locks for a month. The UI must support this 4-level tracking matrix:
+* **L1 (Task Completion):** Binary Checkbox.
+* **L2 (Task Compliance):** Binary Checkbox (e.g., hitting specific time windows).
+* **L3A (Time Committed):** Binary Checkbox vs target baseline.
+* **L3B (Duration Log):** Integer text field that calculates a completion percentage using this logic:
+
+$$\frac{\text{Actual}}{\text{Target}} \times 100$$
+
+
+
+
+
+**Step 5: Spiritual Habits (Static/Mandatory Setup)**
+Under the Spiritual Habits tab, build the following specific SHC modules:
+
+* **Daily Habits:**
+* **SHC001 (Prayer):** Tracks prayer execution and duration.
+* **SHC002 (Devotion):** Tracks scripture immersion. Includes a 'Devotion Type' dropdown (Review Slide, Watch Recording, Audiobook, Read Bible) and a detail log text area with a 2000-character maximum limit.
+
+
+* **Weekly Habits:**
+* **SHC003 (Precious Church Treasury / GOT & BOB):** Tracks financial commitments. Includes integer inputs for Gift, Offering, Tithes, and Breaking of Bread (BOB) Deductions (Dropdown: Medical, Financial, Sharing, Internet, Food). Mandate a 'Receipt Upload' (file input).
+Calculate the total submission dynamically using:
+
+$$(\text{Gift} + \text{Offering} + \text{Tithes}) - \text{Breaking of Bread} = \text{Total Submission}$$
+
+
+* **SHC004 (Worship Service Attendance):** Toggles for Online/Onsite. If absent, mandate a reason (Medical, Academic, Invalid).
+* **SHC005 (Biblical Message Notes):** Option to upload a handwritten photo OR digital notes. Digital notes require a complex form with two sections:
+1. **BSF (Biblical Security Features):** Checkboxes/Inputs for Whole Context, The Source, The Receiver, Relation, Specific Topic, Outline, Application, and Member Notes.
+2. **BUP (Biblical Underlying Principle):** Radio select (Direct God, Direct Prophet, Written Prophet, Direct Jesus, Direct Disciples, Written Disciples).
+
+
+* **SHC006 (Caregroup Attendance & Engagement):** Validated by CG Servant. Includes text inputs for the Weekly CG Question & Answer.
+
+
+* **Monthly Habits:**
+* **SHC007 (Sharing Huddle Attendance):** Validated by Sharing Captain. Includes a Monthly Huddle Q&A text input.
+
+
+
+**Step 6: Personal Habits Tab**
+
+* Build a 'Personal Habit Card' UI allowing members to add custom dynamic habits.
+* Fields: Habit Name, Frequency (Daily/Weekly), and 'Time Committed'. Render these custom cards in a grid.
+
+**Step 7: Testing Environment Separation**
+
+* Ensure the database respects the `is_testing_account` boolean.
+* All test accounts must only populate data on a 'Test Stellar Board', while production accounts populate the official Stellar Board."

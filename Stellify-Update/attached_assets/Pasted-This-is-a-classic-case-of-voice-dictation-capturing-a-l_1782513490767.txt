@@ -1,0 +1,40 @@
+This is a classic case of voice dictation capturing a lot of brilliant ideas in a very unstructured way! If you paste that directly into Replit, the AI will likely get confused about where to start, break your existing code, or hallucinate database relationships.
+To ensure Replit successfully updates Stellify, I have cleaned up your transcript, mapped your requests to the architecture we established earlier, and formatted it into a structured, step-by-step developer prompt.
+Copy the block below and paste it directly into your Replit Agent prompt.
+📋 Copy & Paste This Prompt into Replit
+Prompt:
+"I have a comprehensive feature update for the Stellify web application. Please execute these updates step-by-step, ensuring you update the database schema first before touching the UI.
+Step 1: Database Schema Updates
+Update the database models to support the following new fields and tables:
+Users/Members Table: Add the following date fields: salvation_date, bearing_date, dedication_date, and permission_to_share_date.
+Add a boolean field is_testing_account (default false).
+Add a boolean field discipleship_status (enabled/disabled).
+Add a field pending_stellar_status and stellar_status_approved_by_pastor (boolean) to handle pastor approvals.
+Reset all current users' stellar_fragments to 0, .
+Step 2: Settings & Member Profile UI
+Settings Page: Remove the 'System' option for themes; restrict the toggle to strictly 'Light Mode' or 'Dark Mode'.
+Account Settings: Allow users to update their username and password. If they cannot update it, provide a 'Request Password Reset' button that flags the Admin.
+Profile Page: Allow both the Admin and the Member to upload/update the member's profile picture. Lock the 'Stellar Status' field so members can only view it, not edit it.
+Step 3: Admin Panel & Pastor Approvals (Manage Members)
+In the Admin Panel's 'Manage Members' section, allow the Admin to input and update the new dates (salvation_date, bearing_date, dedication_date, permission_to_share_date).
+Add Status called “Discipleship status” Allow the Admin to toggle the 'Discipleship Status' (Enabled/Disabled).
+Approval Workflow: If an Admin changes a member's 'Stellar Status', it must not go live immediately. It should trigger an approval request that the user with the 'Pastor' role must approve before the status actually changes in the database.
+Step 4: The Stellar Board & Discipleship Hub
+Tab Alignment: Both the 'Stellar Board' and the 'Discipleship Hub' must now have three exact subtabs: 1. Spiritual Habits, 2. Personal Habits, 3. Sharing Habits. Ensure the data routes to the correct tabs.
+Environment Filtering: On the Stellar Board, ensure that accounts flagged as is_testing_account = true only see other testing accounts on the board. Production accounts (is_testing_account = false) must only see other production accounts.
+Step 5: The Church Hub (Content Management)
+Rename the 'Sermons' section to 'Biblical Message'.
+Biblical Message Subtab: Build a CRUD interface for Admins to Add/Edit/Delete messages. Fields include Title, Teacher, Description, and a Google Drive Video Link. Crucial: Use an iframe or player to natively preview/play the video inside the app.
+Events Subtab: Allow Admins to add events. Fields: Title, Date, and Type (Dropdown options: Worship, Caregroup, Sharing Huddle, Special Event, On-site Event, In Memory of the Lord Jesus, Church Celebration).
+Guides Subtab: Allow Admins to post materials. Fields: Title, Description, and Google Drive File Link. Crucial: Use an iframe to natively preview the PDF/Doc inside the app.
+Step 6: Requests & Feedback System (Member to Leader)
+Create a communication module with three sections. Members must be able to 'Send' and 'Edit' these requests.
+Prayer Requests: Member inputs text and selects visibility via a dropdown (Whole Church, Care Group, Sharing Huddle, Pastor). It should only display to the relevant linked group.
+Counseling Request: Member requests a session. The dropdown must dynamically pull and display the specific names of their linked Pastor, Servant (Care Group leader), or Captain (Sharing Huddle leader).
+Feedback: Member submits text with a toggle to 'Share Name' or 'Submit Anonymously'.
+Leader Inbox: When a Pastor, Servant, or Captain views these requests, provide an action button to acknowledge them (e.g., 'Counseled', 'Prayed For', 'Feedback Acknowledged')."
+💡 Why this structure works for Replit:
+Schema First: It forces Replit to build the database columns for your new dates and flags before it tries to build the UI, preventing nasty crash errors.
+Explicit Routing: It gives Replit clear logic on how to handle the Pastor Approval workflow, which is complex and usually requires specific backend logic to execute properly.
+Dropdown Definitions: It explicitly lists out your event types and routing options so the AI doesn't have to guess what you meant by "different types of events."
+

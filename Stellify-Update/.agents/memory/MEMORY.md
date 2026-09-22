@@ -1,0 +1,4 @@
+- [Post-merge lib rebuild](post-merge-lib-rebuild.md) — after any task-agent merge that changes lib packages, run `pnpm run typecheck:libs` before leaf typechecks or imports will appear missing.
+- [Habit Card design system](habit-card-design.md) — warm tan/brown palette tokens (HC object) + DailyHabitCard shared component for SHC001/SHC002 in spiritual.tsx.
+- [Orval query key invalidation](orval-query-key-invalidation.md) — generated keys use actual API paths (e.g. /api/habits/spiritual), not semantic names; always use getXxxQueryKey() helpers or verify the generated key before calling invalidateQueries.
+- [recalcMemberStats fire-and-forget](recalc-fire-and-forget.md) — recalcMemberStats runs 8+ sequential DB queries; must be fire-and-forget (.catch) after all habit write routes; never awaited before res.json().

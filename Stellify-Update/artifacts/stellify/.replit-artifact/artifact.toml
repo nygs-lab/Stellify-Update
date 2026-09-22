@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Stellify"
+version = "1.0.0"
+id = "artifacts/stellify"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24265
+
+[services.development]
+run = "pnpm --filter @workspace/stellify run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/stellify", "run", "build" ]
+publicDir = "artifacts/stellify/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24265"
+BASE_PATH = "/"
