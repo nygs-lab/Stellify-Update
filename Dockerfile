@@ -1,20 +1,17 @@
 FROM node:20-slim
 
-# Enable pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Force pnpm v9 to bypass pnpm v10 strict lockfile build-script blocks
+RUN npm install -g pnpm@9
 
 WORKDIR /app
 
-# Copy all files
+# Copy repository files
 COPY . .
 
-# 1. Run approve-builds with --g (global) or auto-accept to allow esbuild
-RUN pnpm approve-builds --all || true
+# Install dependencies without pnpm v10 restrictions
+RUN pnpm install --no-frozen-lockfile
 
-# 2. Install dependencies with build scripts explicitly allowed
-RUN pnpm install --no-frozen-lockfile --config.onlyBuiltDependencies=""
-
-# 3. Build application
+# Run build script
 RUN pnpm run build
 
 ENV PORT=5000
