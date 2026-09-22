@@ -49,5 +49,5 @@ Thumbs.db
 .local/
 
 # Ignore secret environment files
-StellifySS.env
+.env
 *.env
