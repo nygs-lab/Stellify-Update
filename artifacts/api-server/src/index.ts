@@ -27,8 +27,8 @@ const distPath = path.join(process.cwd(), "artifacts/stellify/dist");
 app.use(express.static(publicPath));
 app.use(express.static(distPath));
 
-// Fallback all non-API GET requests to index.html for Single Page Application routing
-app.get("*", (req, res, next) => {
+// Express v5 syntax: use '{*splat}' instead of '*' for wildcards
+app.get("{*splat}", (req, res, next) => {
   if (req.path.startsWith("/api")) return next();
   res.sendFile(path.join(publicPath, "index.html"), (err) => {
     if (err) res.sendFile(path.join(distPath, "index.html"), () => res.status(404).send("Page not found"));
@@ -45,19 +45,6 @@ app.listen(port, (err) => {
 });
 
 // ─── ANNUAL FRAGMENT RESET SCHEDULER ─────────────────────────────────────────
-// Checks every 6 hours whether the annual reset for the current year has run.
-//
-// Uses a DB-backed "lastAnnualResetYear" key so the check survives server
-// restarts and outages.  If the server was down all of January 1st and comes
-// back up on January 2nd (or even February), the reset is still detected as
-// missing and executed.
-//
-// Correctness guarantees:
-// - `lastAnnualResetYear` in the DB is only written AFTER a successful reset,
-//   so a failed or partial reset is retried on the next interval.
-// - Running the reset multiple times in the same year is safe — it is
-//   idempotent and always derives from the underlying log tables.
-
 async function maybeRunAnnualReset(): Promise<void> {
   const currentYear = new Date().getFullYear();
   let lastResetYear: number;
@@ -77,7 +64,6 @@ async function maybeRunAnnualReset(): Promise<void> {
 
   try {
     const result = await recalcAllMembersForYear(currentYear, true);
-    // Only mark success AFTER the recalculation completes without error
     await setLastResetYear(currentYear);
     logger.info({ year: currentYear, ...result }, "Annual fragment reset complete");
   } catch (err) {
@@ -85,14 +71,7 @@ async function maybeRunAnnualReset(): Promise<void> {
   }
 }
 
-// Check every 6 hours; also run once at startup so any missed reset
-// (including across a multi-day outage) is caught immediately.
 setInterval(maybeRunAnnualReset, 6 * 60 * 60 * 1000);
 maybeRunAnnualReset().catch((err) => logger.error({ err }, "Startup annual-reset check failed"));
 
-// ─── NIGHTLY STREAK REMINDER ──────────────────────────────────────────────────
-// Fires at 8 PM server-time each night.  Queries members who haven't logged
-// both SHC001 (Prayer) and SHC002 (Devotion) today and sends a push
-// notification via the Expo Push API so the reminder fires even if the member
-// never opened the app that day.
 scheduleStreakReminderJob();
