@@ -8,8 +8,9 @@ WORKDIR /app
 # Copy repository files
 COPY . .
 
-# Set environment variables required BEFORE build time
+# Set environment variables required for build phase
 ENV PORT=5000
+ENV BASE_PATH=/
 ENV EXPO_PUBLIC_DOMAIN=stellify-update.onrender.com
 
 # Install dependencies
