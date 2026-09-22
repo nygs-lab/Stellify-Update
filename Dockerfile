@@ -5,16 +5,16 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-# Copy all repository files
+# Copy all files
 COPY . .
 
-# Explicitly configure pnpm to allow all build scripts globally inside Docker
-RUN pnpm config set ignore-scripts false
+# 1. Run approve-builds with --g (global) or auto-accept to allow esbuild
+RUN pnpm approve-builds --all || true
 
-# Install dependencies with explicit script execution enabled
-RUN pnpm install --no-frozen-lockfile --config.ignore-scripts=false
+# 2. Install dependencies with build scripts explicitly allowed
+RUN pnpm install --no-frozen-lockfile --config.onlyBuiltDependencies=""
 
-# Run build script
+# 3. Build application
 RUN pnpm run build
 
 ENV PORT=5000
