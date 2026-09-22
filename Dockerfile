@@ -8,13 +8,10 @@ WORKDIR /app
 # Copy all project files
 COPY . .
 
-# Bypass pnpm v10 build script blocking
-ENV PNPM_CONFIG_ONLY_BUILT_DEPENDENCIES=esbuild,@swc/core,sharp,@expo/ngrok-bin-linux-x64
+# Install dependencies (will now respect package.json pnpm.onlyBuiltDependencies)
+RUN pnpm install --no-frozen-lockfile
 
-# Install dependencies allowing build scripts
-RUN pnpm install --no-frozen-lockfile --unsafe-perm
-
-# Run the root build script
+# Run build script
 RUN pnpm run build
 
 ENV PORT=5000
