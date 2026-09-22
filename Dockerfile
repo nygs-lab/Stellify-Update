@@ -11,7 +11,10 @@ COPY . .
 # Install dependencies
 RUN pnpm install --no-frozen-lockfile
 
-# Build workspace apps directly (skipping root typecheck script)
+# Set environment variable required by mobile build script
+ENV EXPO_PUBLIC_DOMAIN=stellify-update.onrender.com
+
+# Build workspace apps
 RUN pnpm -r --filter "./artifacts/**" --if-present run build
 
 ENV PORT=5000
