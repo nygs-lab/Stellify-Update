@@ -5,19 +5,20 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-# Copy package management files first
+# Copy package management files
 COPY package.json pnpm-lock.yaml* ./
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile || pnpm install
+RUN pnpm install
 
-# Copy application source code
+# Copy source code
 COPY . .
 
-# Build step (if your package.json has a build script)
+# Build application if build script exists
 RUN pnpm run build --if-present
 
+ENV PORT=5000
 EXPOSE 5000
 
-# Start the application
+# Start application
 CMD ["pnpm", "start"]
