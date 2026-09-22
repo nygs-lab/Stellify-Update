@@ -1,3 +1,5 @@
+import path from "path";
+import express from "express";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { recalcAllMembersForYear, getLastResetYear, setLastResetYear } from "./lib/fragments";
@@ -16,6 +18,22 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
+
+// ─── STATIC FRONTEND SERVING ──────────────────────────────────────────────────
+// Serve static built web assets from the frontend artifact folder
+const publicPath = path.join(process.cwd(), "artifacts/stellify/dist/public");
+const distPath = path.join(process.cwd(), "artifacts/stellify/dist");
+
+app.use(express.static(publicPath));
+app.use(express.static(distPath));
+
+// Fallback all non-API GET requests to index.html for Single Page Application routing
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api")) return next();
+  res.sendFile(path.join(publicPath, "index.html"), (err) => {
+    if (err) res.sendFile(path.join(distPath, "index.html"), () => res.status(404).send("Page not found"));
+  });
+});
 
 app.listen(port, (err) => {
   if (err) {
