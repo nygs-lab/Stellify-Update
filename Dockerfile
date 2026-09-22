@@ -8,13 +8,14 @@ WORKDIR /app
 # Copy package management files
 COPY package.json pnpm-lock.yaml* ./
 
-# Install dependencies
-RUN pnpm install
+# Allow native build scripts (esbuild, etc.) and install dependencies
+RUN pnpm config set ignore-scripts false
+RUN pnpm install --unsafe-perm
 
-# Copy source code
+# Copy remaining source code
 COPY . .
 
-# Build application if build script exists
+# Build application with script execution allowed
 RUN pnpm run build --if-present
 
 ENV PORT=5000
