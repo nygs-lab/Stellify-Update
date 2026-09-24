@@ -21,16 +21,21 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 // ─── STATIC FRONTEND SERVING ──────────────────────────────────────────────────
-// Absolute paths resolved relative to container root /app
-const rootDir = process.cwd();
+// Explicitly resolve paths relative to both process.cwd() AND __dirname
 const possiblePaths = [
-  path.resolve(rootDir, "artifacts/stellify/dist/public"),
-  path.resolve(rootDir, "artifacts/stellify/dist"),
-  path.resolve(rootDir, "dist/public"),
-  path.resolve(rootDir, "dist"),
+  // Relative to repository root /app
+  path.resolve(process.cwd(), "artifacts/stellify/dist/public"),
+  path.resolve(process.cwd(), "artifacts/stellify/dist"),
+  path.resolve(process.cwd(), "../stellify/dist/public"),
+  path.resolve(process.cwd(), "../stellify/dist"),
+  // Relative to this file's location inside artifacts/api-server/src or dist
+  path.resolve(__dirname, "../../stellify/dist/public"),
+  path.resolve(__dirname, "../../stellify/dist"),
+  path.resolve(__dirname, "../../../artifacts/stellify/dist/public"),
+  path.resolve(__dirname, "../../../artifacts/stellify/dist"),
 ];
 
-// Mount static middleware for every existing directory
+// Mount static middleware for any directory that exists
 possiblePaths.forEach((staticPath) => {
   if (fs.existsSync(staticPath)) {
     logger.info({ staticPath }, "Mounted static frontend assets directory");
@@ -38,7 +43,7 @@ possiblePaths.forEach((staticPath) => {
   }
 });
 
-// Fallback GET requests to index.html for Single Page Application routing
+// Fallback GET requests to index.html for Single Page Application (SPA) routing
 app.get("{*splat}", (req, res, next) => {
   if (req.path.startsWith("/api")) return next();
 
@@ -58,7 +63,7 @@ app.listen(port, (err) => {
     process.exit(1);
   }
 
-  logger.info({ port, rootDir }, "Server listening");
+  logger.info({ port, cwd: process.cwd(), __dirname }, "Server listening");
 });
 
 // ─── ANNUAL FRAGMENT RESET SCHEDULER ─────────────────────────────────────────
