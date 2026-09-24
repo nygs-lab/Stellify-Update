@@ -1,4 +1,5 @@
 import path from "path";
+import fs from "fs";
 import express from "express";
 import app from "./app";
 import { logger } from "./lib/logger";
@@ -20,19 +21,35 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 // ─── STATIC FRONTEND SERVING ──────────────────────────────────────────────────
-// Serve static built web assets from the frontend artifact folder
-const publicPath = path.join(process.cwd(), "artifacts/stellify/dist/public");
-const distPath = path.join(process.cwd(), "artifacts/stellify/dist");
+// Absolute paths resolved relative to container root /app
+const rootDir = process.cwd();
+const possiblePaths = [
+  path.resolve(rootDir, "artifacts/stellify/dist/public"),
+  path.resolve(rootDir, "artifacts/stellify/dist"),
+  path.resolve(rootDir, "dist/public"),
+  path.resolve(rootDir, "dist"),
+];
 
-app.use(express.static(publicPath));
-app.use(express.static(distPath));
+// Mount static middleware for every existing directory
+possiblePaths.forEach((staticPath) => {
+  if (fs.existsSync(staticPath)) {
+    logger.info({ staticPath }, "Mounted static frontend assets directory");
+    app.use(express.static(staticPath));
+  }
+});
 
-// Express v5 syntax: use '{*splat}' instead of '*' for wildcards
+// Fallback GET requests to index.html for Single Page Application routing
 app.get("{*splat}", (req, res, next) => {
   if (req.path.startsWith("/api")) return next();
-  res.sendFile(path.join(publicPath, "index.html"), (err) => {
-    if (err) res.sendFile(path.join(distPath, "index.html"), () => res.status(404).send("Page not found"));
-  });
+
+  for (const staticPath of possiblePaths) {
+    const indexPath = path.join(staticPath, "index.html");
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+  }
+
+  res.status(404).send("Frontend index.html not found at expected path");
 });
 
 app.listen(port, (err) => {
@@ -41,7 +58,7 @@ app.listen(port, (err) => {
     process.exit(1);
   }
 
-  logger.info({ port }, "Server listening");
+  logger.info({ port, rootDir }, "Server listening");
 });
 
 // ─── ANNUAL FRAGMENT RESET SCHEDULER ─────────────────────────────────────────
