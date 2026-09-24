@@ -16,10 +16,10 @@ ENV EXPO_PUBLIC_DOMAIN=stellify-update.onrender.com
 # Install dependencies
 RUN pnpm install --no-frozen-lockfile
 
-# Build workspace apps
+# Build workspace projects
 RUN pnpm -r --filter "./artifacts/**" --if-present run build
 
 EXPOSE 5000
 
-# Push Drizzle schema and start API server
-CMD ["sh", "-c", "npx drizzle-kit push || true; pnpm --filter @workspace/api-server start"]
+# Push Drizzle schema, run seed script, and start API server
+CMD ["sh", "-c", "npx drizzle-kit push || true; pnpm --filter @workspace/scripts start || true; pnpm --filter @workspace/api-server start"]
