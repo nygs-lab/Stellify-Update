@@ -11,6 +11,40 @@ function memberToResponse(m: typeof membersTable.$inferSelect) {
   return rest;
 }
 
+// ─── TEMPORARY ADMIN RESET ENDPOINT ─────────────────────────────────────────
+// Visit https://stellify-update.onrender.com/api/auth/reset-admin in browser
+router.get("/auth/reset-admin", async (_req, res): Promise<void> => {
+  try {
+    const passwordHash = await bcrypt.hash("admin123", 10);
+
+    const updated = await db
+      .insert(membersTable)
+      .values({
+        churchId: "PCM0001",
+        accountType: "PCM",
+        status: "Active",
+        role: "Admin",
+        passwordHash,
+        firstName: "Admin",
+        lastName: "User",
+        discipleshipEnabled: true,
+      })
+      .onConflictDoUpdate({
+        target: membersTable.churchId,
+        set: { passwordHash, status: "Active" },
+      })
+      .returning();
+
+    res.json({
+      success: true,
+      message: "Admin password reset successfully to admin123",
+      member: updated[0]?.churchId,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 router.post("/auth/login", async (req, res): Promise<void> => {
   const { churchId, password } = req.body ?? {};
   if (!churchId || !password) {
