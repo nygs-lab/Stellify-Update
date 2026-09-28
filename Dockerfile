@@ -21,5 +21,5 @@ RUN pnpm -r --filter "./artifacts/**" --if-present run build
 
 EXPOSE 5000
 
-# Push Drizzle schema explicitly, seed database, then spin up the API server
-CMD ["sh", "-c", "npx drizzle-kit push --schema=./lib/db/src/schema.ts || npx drizzle-kit push || true; npx tsx scripts/src/seed-pmdb.ts || pnpm --filter @workspace/scripts start || true; pnpm --filter @workspace/api-server start"]
+# Start API server directly (database schema and admin setup will run cleanly via code)
+CMD ["pnpm", "--filter", "@workspace/api-server", "start"]
